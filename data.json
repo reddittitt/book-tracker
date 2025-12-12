@@ -1,0 +1,10 @@
+{
+  "settings": {
+    "year": 2026,
+    "booksGoal": 52,
+    "minutesGoal": 30000,
+    "pagesPerHour": 30
+  },
+  "books": [],
+  "logs": []
+}
