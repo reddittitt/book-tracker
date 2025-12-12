@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+
+  <!-- iOS + PWA -->
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
+  <meta name="theme-color" content="#0b0f14" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Reading Tracker" />
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png" />
+  <link rel="manifest" href="./manifest.json" />
+
+  <title>Reading Tracker</title>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <div class="logo">📚</div>
+      <div>
+        <div class="title">Reading Tracker</div>
+        <div class="subtitle">Minutes-first. Pages optional. Truthful pacing.</div>
+      </div>
+    </div>
+
+    <nav class="tabs" aria-label="Sections">
+      <button class="tab is-active" data-tab="dashboard" type="button">Dashboard</button>
+      <button class="tab" data-tab="books" type="button">Books</button>
+      <button class="tab" data-tab="log" type="button">Daily Log</button>
+      <button class="tab" data-tab="data" type="button">Data</button>
+    </nav>
+  </header>
+
+  <main class="wrap">
+    <!-- DASHBOARD -->
+    <section class="panel is-active" id="panel-dashboard">
+      <div class="grid-3">
+        <div class="card">
+          <div class="card-h">🎯 Year Goals</div>
+
+          <div class="kv">
+            <div class="k">Year</div><div class="v"><span id="yearLabel"></span></div>
+            <div class="k">Books goal</div><div class="v"><span id="booksGoal"></span></div>
+            <div class="k">Minutes goal</div><div class="v"><span id="minutesGoal"></span></div>
+            <div class="k">Pages/hour</div><div class="v"><span id="speedLabel"></span></div>
+            <div class="k">Days elapsed</div><div class="v"><span id="daysElapsed"></span> / <span id="daysInYear"></span></div>
+          </div>
+
+          <div class="bar-block">
+            <div class="bar-title">Books progress</div>
+            <div class="bar"><div class="bar-fill" id="barBooks"></div></div>
+            <div class="bar-meta"><span id="booksDone"></span> finished • <span id="booksPlanned"></span> planned</div>
+          </div>
+
+          <div class="bar-block">
+            <div class="bar-title">Minutes progress</div>
+            <div class="bar"><div class="bar-fill" id="barMinutes"></div></div>
+            <div class="bar-meta"><span id="minutesDone"></span> minutes • <span id="minutesPerDay"></span> min/day avg</div>
+          </div>
+
+          <div class="statusline" id="yearStatus"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">✅ Today</div>
+
+          <form id="todayForm" class="stack">
+            <label>
+              Date
+              <input type="date" id="todayDate" required />
+            </label>
+
+            <label>
+              Minutes read (required)
+              <input type="number" id="todayMinutes" min="0" step="1" placeholder="e.g., 30" required />
+            </label>
+
+            <label>
+              Pages read (optional)
+              <input type="number" id="todayPages" min="0" step="1" placeholder="e.g., 25" />
+            </label>
+
+            <label>
+              Book (optional)
+              <select id="todayBook">
+                <option value="">— No book selected —</option>
+              </select>
+            </label>
+
+            <button type="submit" class="btn primary">Add today’s entry</button>
+          </form>
+
+          <div class="hint">
+            🔥 Current streak: <strong><span id="streakCount"></span></strong> days<br/>
+            📅 This week: <strong><span id="weekMinutes"></span></strong> minutes
+          </div>
+
+          <div class="hint">Apple Books workflow: log minutes daily. Pages only if you want tighter estimates.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">🚦 Attention</div>
+          <div class="pillrow">
+            <div class="pill ok"><span id="countOnTrack"></span> On track</div>
+            <div class="pill bad"><span id="countBehind"></span> Behind</div>
+          </div>
+          <div class="list" id="attentionList"></div>
+        </div>
+      </div>
+
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h">📚 Currently Reading</div>
+          <div class="list" id="currentList"></div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">⏱ Recent Logs</div>
+          <div class="list" id="recentLogs"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- BOOKS -->
+    <section class="panel" id="panel-books">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h">Add a book</div>
+
+          <form id="bookForm" class="stack">
+            <label>
+              Title
+              <input type="text" id="bookTitle" placeholder="e.g., The Great Divorce" required />
+            </label>
+
+            <label>
+              Total pages
+              <input type="number" id="bookPages" min="1" step="1" required />
+            </label>
+
+            <label>
+              Start date
+              <input type="date" id="bookStart" required />
+            </label>
+
+            <label>
+              Target finish date
+              <input type="date" id="bookFinish" required />
+            </label>
+
+            <button type="submit" class="btn primary">Add book</button>
+          </form>
+
+          <div class="hint">Tip: even if you never log pages, you’ll still get required minutes/day using pages/hour.</div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">Books</div>
+          <div class="tablewrap">
+            <table class="table" id="booksTable">
+              <thead>
+                <tr>
+                  <th>Book</th>
+                  <th>Finish</th>
+                  <th>Pages</th>
+                  <th>Pages left</th>
+                  <th>Min/day req</th>
+                  <th>Status</th>
+                  <th>Done</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="hint">Click a book title to open details.</div>
+        </div>
+      </div>
+    </section>
+
+    <!-- LOG -->
+    <section class="panel" id="panel-log">
+      <div class="card">
+        <div class="card-h">Daily Reading Log</div>
+
+        <div class="toolbar">
+          <button class="btn" id="btnClearFilters" type="button">Clear filters</button>
+
+          <select id="filterBook">
+            <option value="">All books</option>
+          </select>
+
+          <input type="date" id="filterFrom" />
+          <input type="date" id="filterTo" />
+
+          <button class="btn" id="btnApplyFilters" type="button">Apply</button>
+        </div>
+
+        <div class="tablewrap">
+          <table class="table" id="logTable">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Book</th>
+                <th>Minutes</th>
+                <th>Pages</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody></tbody>
+          </table>
+        </div>
+
+        <div class="hint">If you don’t want to pick a book daily, leave it blank—minutes still count for the year.</div>
+      </div>
+    </section>
+
+    <!-- DATA -->
+    <section class="panel" id="panel-data">
+      <div class="grid-2">
+        <div class="card">
+          <div class="card-h">Settings</div>
+
+          <form id="settingsForm" class="stack">
+            <label>
+              Year (label)
+              <input type="number" id="setYear" min="2000" step="1" required />
+            </label>
+
+            <label>
+              Books goal
+              <input type="number" id="setBooksGoal" min="0" step="1" required />
+            </label>
+
+            <label>
+              Minutes goal
+              <input type="number" id="setMinutesGoal" min="0" step="1" required />
+            </label>
+
+            <label>
+              Default reading speed (pages/hour)
+              <input type="number" id="setSpeed" min="5" step="1" required />
+            </label>
+
+            <button class="btn primary" type="submit">Save settings</button>
+          </form>
+
+          <div class="hint">
+            Pages/hour lets the app estimate how many minutes you need per book—even if you never log pages.
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-h">Backup / Sync</div>
+
+          <div class="stack">
+            <button class="btn" id="btnExport" type="button">Export data.json</button>
+
+            <label class="file">
+              Import data.json
+              <input type="file" id="fileImport" accept="application/json" />
+            </label>
+
+            <button class="btn danger" id="btnReset" type="button">Reset local data</button>
+          </div>
+
+          <div class="hint">
+            Sync across devices (simple): Export → commit the downloaded file as <code>data.json</code> in your repo → reload on other device.
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="foot">
+    <span>Local-first • GitHub Pages-ready • Add to Home Screen on iOS</span>
+  </footer>
+
+  <!-- Book modal -->
+  <div id="bookModal" class="modal" aria-hidden="true">
+    <div class="modal-card" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+      <div class="modal-top">
+        <div class="modal-title" id="modalTitle">Book</div>
+        <button id="closeModal" class="btn" type="button">Close</button>
+      </div>
+      <div id="modalBody" class="modal-body"></div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
