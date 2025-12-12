@@ -6,5 +6,6 @@
     "pagesPerHour": 30
   },
   "books": [],
-  "logs": []
+  "dailyMinutes": [],
+  "progress": []
 }
