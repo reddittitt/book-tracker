@@ -1,4 +1,4 @@
-const LS_KEY = "readingTrackerData.v2";
+const LS_KEY = "readingTrackerData.v2_1";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -87,7 +87,12 @@ function normalizeState(s){
   s.dailyMinutes ||= [];
   s.progress ||= [];
 
-  s.books.forEach(b => { if(!b.id) b.id = uid(); if(b.finished === undefined) b.finished = false; });
+  s.books.forEach(b => {
+    if(!b.id) b.id = uid();
+    if(b.finished === undefined) b.finished = false;
+    if(b.currentlyReading === undefined) b.currentlyReading = true; // default ON for new books
+  });
+
   s.dailyMinutes.forEach(x => { if(!x.id) x.id = uid(); });
   s.progress.forEach(x => { if(!x.id) x.id = uid(); });
 
@@ -153,26 +158,30 @@ function minPerDayRequired(book){
   return Math.max(0, Math.round(estMinutesLeft(book) / daysRemaining(book.finishDate)));
 }
 
-/* “On track” without per-book minutes:
-   We allocate your daily minutes across active books in proportion to each book’s required minutes/day.
-   That gives a fair “pace score” per book without you doing extra input.
-*/
-function activeBooks(){
+/* Currently reading filtering */
+function unfinishedBooks(){
   return state.books.filter(b => !b.finished);
 }
+function currentlyReadingBooks(){
+  const list = state.books.filter(b => !b.finished && b.currentlyReading);
+  return list.length ? list : unfinishedBooks(); // fallback to all unfinished if none selected
+}
 
+/* Allocation logic:
+   Allocate your avg minutes/day across CURRENTLY READING books,
+   proportional to each book’s required minutes/day.
+*/
 function allocationWeight(book){
   return Math.max(1, minPerDayRequired(book));
 }
 
 function allocatedMinutesPerDayAverage(book){
-  // total minutes/day average across the year so far
   const year = Number(state.settings.year || 2026);
   const elapsed = Math.max(1, dayOfYear(year));
   const totalMin = minutesForYear(year);
   const avgPerDay = totalMin / elapsed;
 
-  const books = activeBooks();
+  const books = currentlyReadingBooks();
   const totalWeight = books.reduce((a,b)=>a + allocationWeight(b), 0) || 1;
 
   return avgPerDay * (allocationWeight(book) / totalWeight);
@@ -246,7 +255,7 @@ function renderDashboard(){
   $("#streakCount").textContent = readingStreak();
   $("#weekMinutes").textContent = minutesThisWeek();
 
-  const decorated = activeBooks().map(b => ({
+  const decorated = currentlyReadingBooks().map(b => ({
     ...b,
     cur: currentPage(b),
     left: pagesLeft(b),
@@ -271,10 +280,10 @@ function renderDashboard(){
     }).join("") || `<div class="hint">Add books to start tracking.</div>`;
 
   const activity = [];
-  state.dailyMinutes.slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"")).slice(0,5)
+  state.dailyMinutes.slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"")).slice(0,6)
     .forEach(x => activity.push({ t:`${x.date}`, m:`${Number(x.minutes||0)} minutes (daily total)` }));
 
-  state.progress.slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"")).slice(0,5)
+  state.progress.slice().sort((a,b)=> (b.date||"").localeCompare(a.date||"")).slice(0,6)
     .forEach(x => {
       const book = state.books.find(b=>b.id===x.bookId);
       activity.push({ t:`${x.date}`, m:`${book?book.title:"Unknown"} → page ${x.currentPage}` });
@@ -315,14 +324,14 @@ function renderBooksTable(){
           <td>${left}</td>
           <td>${req}</td>
           <td>${badge}</td>
+          <td><input type="checkbox" data-action="toggle-reading" data-id="${b.id}" ${b.currentlyReading?"checked":""} /></td>
           <td><input type="checkbox" data-action="toggle-finished" data-id="${b.id}" ${b.finished?"checked":""} /></td>
           <td><button class="btn danger" data-action="delete-book" data-id="${b.id}" type="button">Delete</button></td>
         </tr>`;
-    }).join("") || `<tr><td colspan="9" style="color:var(--muted);padding:14px;">No books yet.</td></tr>`;
+    }).join("") || `<tr><td colspan="10" style="color:var(--muted);padding:14px;">No books yet.</td></tr>`;
 }
 
 function renderLogs(){
-  // Minutes
   const mt = $("#minutesTable tbody");
   mt.innerHTML = state.dailyMinutes
     .slice()
@@ -335,7 +344,6 @@ function renderLogs(){
       </tr>
     `).join("") || `<tr><td colspan="3" style="color:var(--muted);padding:14px;">No entries.</td></tr>`;
 
-  // Progress
   const pt = $("#progressTable tbody");
   pt.innerHTML = state.progress
     .slice()
@@ -374,6 +382,7 @@ function openBookModal(book){
       <div class="m">Start ${book.startDate} • Finish ${book.finishDate}</div>
     </div>
     <div class="kv" style="margin-top:10px;">
+      <div class="k">Currently reading</div><div class="v">${book.currentlyReading ? "Yes" : "No"}</div>
       <div class="k">Current page</div><div class="v">${cur}</div>
       <div class="k">Total pages</div><div class="v">${book.totalPages}</div>
       <div class="k">Pages left</div><div class="v">${left}</div>
@@ -387,7 +396,6 @@ function closeBookModal(){ $("#bookModal").classList.remove("show"); }
 
 /* Actions */
 function saveMinutes(date, minutes){
-  // upsert by date (one entry per day)
   const existing = state.dailyMinutes.find(x => x.date === date);
   if (existing) existing.minutes = Number(minutes||0);
   else state.dailyMinutes.push({ id: uid(), date, minutes: Number(minutes||0) });
@@ -407,7 +415,15 @@ function saveProgress(date, bookId, currentPageVal){
 }
 
 function addBook(title, totalPages, startDate, finishDate){
-  state.books.push({ id: uid(), title: String(title).trim(), totalPages: Number(totalPages), startDate, finishDate, finished:false });
+  state.books.push({
+    id: uid(),
+    title: String(title).trim(),
+    totalPages: Number(totalPages),
+    startDate,
+    finishDate,
+    finished:false,
+    currentlyReading:true
+  });
   saveLocal(state);
   renderAll();
   showToast("Book added ✔");
@@ -425,9 +441,20 @@ function toggleFinished(id, checked){
   const b = state.books.find(x=>x.id===id);
   if(!b) return;
   b.finished = !!checked;
+  if (b.finished) b.currentlyReading = false; // auto-disable reading when finished
   saveLocal(state);
   renderAll();
   showToast(checked ? "Marked finished ✔" : "Marked unfinished");
+}
+
+function toggleReading(id, checked){
+  const b = state.books.find(x=>x.id===id);
+  if(!b) return;
+  b.currentlyReading = !!checked;
+  if (b.currentlyReading) b.finished = false; // if you mark reading, it can’t be finished
+  saveLocal(state);
+  renderAll();
+  showToast(checked ? "Now reading ✔" : "Not currently reading");
 }
 
 function deleteMinutes(id){
@@ -523,7 +550,9 @@ function initTables(){
   $("#booksTable").addEventListener("change", (e)=>{
     const cb = e.target.closest("input[type=checkbox]");
     if(!cb) return;
+
     if(cb.dataset.action==="toggle-finished") toggleFinished(cb.dataset.id, cb.checked);
+    if(cb.dataset.action==="toggle-reading") toggleReading(cb.dataset.id, cb.checked);
   });
 
   $("#minutesTable").addEventListener("click", (e)=>{
