@@ -1,4 +1,4 @@
-const LS_KEY = "readingTrackerData.v2_1";
+const LS_KEY = "readingTrackerPremium.v2_1";
 
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => Array.from(document.querySelectorAll(sel));
@@ -33,6 +33,7 @@ function dayOfYear(year){
   return clamp(Math.floor((local-start)/86400000) + 1, 0, daysInYear(year));
 }
 function daysRemaining(finishISO){
+  if (!finishISO) return 1;
   const ms = parseISO(finishISO).getTime() - parseISO(todayISO()).getTime();
   return Math.max(1, Math.floor(ms/86400000));
 }
@@ -90,7 +91,7 @@ function normalizeState(s){
   s.books.forEach(b => {
     if(!b.id) b.id = uid();
     if(b.finished === undefined) b.finished = false;
-    if(b.currentlyReading === undefined) b.currentlyReading = true; // default ON for new books
+    if(b.currentlyReading === undefined) b.currentlyReading = true;
   });
 
   s.dailyMinutes.forEach(x => { if(!x.id) x.id = uid(); });
@@ -155,21 +156,22 @@ function estMinutesLeft(book){
 }
 
 function minPerDayRequired(book){
+  if (!book.finishDate) return 0;
   return Math.max(0, Math.round(estMinutesLeft(book) / daysRemaining(book.finishDate)));
 }
 
-/* Currently reading filtering */
 function unfinishedBooks(){
   return state.books.filter(b => !b.finished);
 }
+
 function currentlyReadingBooks(){
   const list = state.books.filter(b => !b.finished && b.currentlyReading);
-  return list.length ? list : unfinishedBooks(); // fallback to all unfinished if none selected
+  return list.length ? list : unfinishedBooks(); // fallback if none selected
 }
 
-/* Allocation logic:
-   Allocate your avg minutes/day across CURRENTLY READING books,
-   proportional to each book’s required minutes/day.
+/* Allocation:
+   Allocate your avg minutes/day across CURRENTLY READING books proportionally
+   to each book’s required minutes/day, so you never log per-book minutes.
 */
 function allocationWeight(book){
   return Math.max(1, minPerDayRequired(book));
@@ -195,7 +197,7 @@ function bookStatus(book){
   return (alloc >= req) ? "🟢 On Track" : "🔴 Behind";
 }
 
-/* Render */
+/* UI */
 function setActiveTab(name){
   $$(".tab").forEach(b => b.classList.toggle("is-active", b.dataset.tab === name));
   $$(".panel").forEach(p => p.classList.toggle("is-active", p.id === `panel-${name}`));
@@ -317,16 +319,16 @@ function renderBooksTable(){
 
       return `
         <tr>
-          <td><strong class="book-link" data-id="${b.id}">${escapeHtml(b.title)}</strong></td>
-          <td>${b.finishDate}</td>
-          <td>${b.totalPages}</td>
-          <td>${cur}</td>
-          <td>${left}</td>
-          <td>${req}</td>
-          <td>${badge}</td>
-          <td><input type="checkbox" data-action="toggle-reading" data-id="${b.id}" ${b.currentlyReading?"checked":""} /></td>
-          <td><input type="checkbox" data-action="toggle-finished" data-id="${b.id}" ${b.finished?"checked":""} /></td>
-          <td><button class="btn danger" data-action="delete-book" data-id="${b.id}" type="button">Delete</button></td>
+          <td data-label="Book"><strong class="book-link" data-id="${b.id}">${escapeHtml(b.title)}</strong></td>
+          <td data-label="Finish">${b.finishDate || ""}</td>
+          <td data-label="Total">${b.totalPages}</td>
+          <td data-label="Current">${cur}</td>
+          <td data-label="Left">${left}</td>
+          <td data-label="Min/day req">${req}</td>
+          <td data-label="Status">${badge}</td>
+          <td data-label="Reading"><input type="checkbox" data-action="toggle-reading" data-id="${b.id}" ${b.currentlyReading?"checked":""} /></td>
+          <td data-label="Done"><input type="checkbox" data-action="toggle-finished" data-id="${b.id}" ${b.finished?"checked":""} /></td>
+          <td data-label="Actions"><button class="btn danger" data-action="delete-book" data-id="${b.id}" type="button">Delete</button></td>
         </tr>`;
     }).join("") || `<tr><td colspan="10" style="color:var(--muted);padding:14px;">No books yet.</td></tr>`;
 }
@@ -338,9 +340,9 @@ function renderLogs(){
     .sort((a,b)=> (b.date||"").localeCompare(a.date||""))
     .map(x => `
       <tr>
-        <td>${x.date}</td>
-        <td>${Number(x.minutes||0)}</td>
-        <td><button class="btn danger" data-action="delete-minutes" data-id="${x.id}" type="button">Delete</button></td>
+        <td data-label="Date">${x.date}</td>
+        <td data-label="Minutes">${Number(x.minutes||0)}</td>
+        <td data-label="Actions"><button class="btn danger" data-action="delete-minutes" data-id="${x.id}" type="button">Delete</button></td>
       </tr>
     `).join("") || `<tr><td colspan="3" style="color:var(--muted);padding:14px;">No entries.</td></tr>`;
 
@@ -352,10 +354,10 @@ function renderLogs(){
       const book = state.books.find(b=>b.id===x.bookId);
       return `
         <tr>
-          <td>${x.date}</td>
-          <td>${escapeHtml(book?book.title:"Unknown")}</td>
-          <td>${Number(x.currentPage||0)}</td>
-          <td><button class="btn danger" data-action="delete-progress" data-id="${x.id}" type="button">Delete</button></td>
+          <td data-label="Date">${x.date}</td>
+          <td data-label="Book">${escapeHtml(book?book.title:"Unknown")}</td>
+          <td data-label="Current Page">${Number(x.currentPage||0)}</td>
+          <td data-label="Actions"><button class="btn danger" data-action="delete-progress" data-id="${x.id}" type="button">Delete</button></td>
         </tr>`;
     }).join("") || `<tr><td colspan="4" style="color:var(--muted);padding:14px;">No updates.</td></tr>`;
 }
@@ -379,7 +381,7 @@ function openBookModal(book){
   $("#modalBody").innerHTML = `
     <div class="item">
       <div class="t">${escapeHtml(book.title)} <span class="badge">${escapeHtml(status)}</span></div>
-      <div class="m">Start ${book.startDate} • Finish ${book.finishDate}</div>
+      <div class="m">Start ${book.startDate || "—"} • Finish ${book.finishDate || "—"}</div>
     </div>
     <div class="kv" style="margin-top:10px;">
       <div class="k">Currently reading</div><div class="v">${book.currentlyReading ? "Yes" : "No"}</div>
@@ -389,6 +391,7 @@ function openBookModal(book){
       <div class="k">Est. minutes left</div><div class="v">${minsLeft}</div>
       <div class="k">Required</div><div class="v">${req} min/day</div>
     </div>
+    <div class="hint">Estimates use your pages/hour setting. Log minutes daily; update page whenever convenient.</div>
   `;
   $("#bookModal").classList.add("show");
 }
@@ -441,7 +444,7 @@ function toggleFinished(id, checked){
   const b = state.books.find(x=>x.id===id);
   if(!b) return;
   b.finished = !!checked;
-  if (b.finished) b.currentlyReading = false; // auto-disable reading when finished
+  if (b.finished) b.currentlyReading = false;
   saveLocal(state);
   renderAll();
   showToast(checked ? "Marked finished ✔" : "Marked unfinished");
@@ -451,7 +454,7 @@ function toggleReading(id, checked){
   const b = state.books.find(x=>x.id===id);
   if(!b) return;
   b.currentlyReading = !!checked;
-  if (b.currentlyReading) b.finished = false; // if you mark reading, it can’t be finished
+  if (b.currentlyReading) b.finished = false;
   saveLocal(state);
   renderAll();
   showToast(checked ? "Now reading ✔" : "Not currently reading");
@@ -490,7 +493,7 @@ function renderAll(){
   renderSettings();
 }
 
-/* Wire */
+/* Wiring */
 function initTabs(){
   $$(".tab").forEach(btn => btn.addEventListener("click", ()=> setActiveTab(btn.dataset.tab)));
 }
@@ -527,6 +530,7 @@ function initForms(){
     showToast("Settings saved ✔");
   });
 
+  // Keyboard shortcut: press "L" to focus daily minutes
   document.addEventListener("keydown", (e)=>{
     if (e.target && ["INPUT","TEXTAREA","SELECT"].includes(e.target.tagName)) return;
     if (e.key.toLowerCase()==="l"){ setActiveTab("dashboard"); $("#minutesTotal").focus(); }
@@ -621,6 +625,9 @@ function initServiceWorker(){
   const local = loadLocal();
   const base = local ? local : await fetchDefaultData();
   state = normalizeState(base);
+
+  // Persist local-first for speed/offline
   saveLocal(state);
+
   renderAll();
 })();
