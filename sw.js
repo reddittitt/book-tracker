@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-tracker-v2_1"; // bump this when you deploy changes
+const CACHE_NAME = "reading-tracker-premium-v2_1";
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,9 +27,8 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // Network-first for app shell too (so updates propagate better)
-  if (req.url.endsWith("/app.js") || req.url.includes("app.js") ||
-      req.url.endsWith("/index.html") || req.url.includes("index.html")) {
+  // Network-first for app shell (updates propagate)
+  if (req.url.includes("index.html") || req.url.includes("app.js") || req.url.includes("style.css")) {
     event.respondWith(
       fetch(req)
         .then(res => {
@@ -56,7 +55,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for the rest
+  // Cache-first for everything else
   event.respondWith(
     caches.match(req).then(cached => cached || fetch(req))
   );
