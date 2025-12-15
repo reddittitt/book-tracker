@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8" />
 
+  <!-- Mobile + iOS A2HS / PWA-ish -->
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover" />
   <meta name="theme-color" content="#0b0f14" />
   <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -18,10 +19,10 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <div class="logo">📚</div>
+      <div class="logo" aria-hidden="true">📚</div>
       <div>
         <div class="title">Reading Tracker</div>
-        <div class="subtitle">Minutes-first. Progress by current page.</div>
+        <div class="subtitle">Minutes-first. Progress by current page. Mobile-native feel.</div>
       </div>
     </div>
 
@@ -112,7 +113,7 @@
             <button type="submit" class="btn primary">Save progress</button>
           </form>
 
-          <div class="hint">Enter your current page whenever convenient (daily, weekly, or at chapter breaks).</div>
+          <div class="hint">Update current page whenever convenient (daily, weekly, chapter breaks).</div>
         </div>
       </div>
 
@@ -120,6 +121,7 @@
         <div class="card">
           <div class="card-h">📚 Currently Reading</div>
           <div class="list" id="currentList"></div>
+          <div class="hint">Only “Currently Reading” books are used to allocate your daily minutes.</div>
         </div>
 
         <div class="card">
@@ -158,31 +160,32 @@
 
             <button type="submit" class="btn primary">Add book</button>
           </form>
+
+          <div class="hint">New books default to “Currently Reading” ON (change it any time).</div>
         </div>
 
         <div class="card">
           <div class="card-h">Books</div>
           <div class="tablewrap">
             <table class="table" id="booksTable">
-             <thead>
-  <tr>
-    <th>Book</th>
-    <th>Finish</th>
-    <th>Total</th>
-    <th>Current</th>
-    <th>Left</th>
-    <th>Min/day req</th>
-    <th>Status</th>
-    <th>Reading</th>
-    <th>Done</th>
-    <th></th>
-  </tr>
-</thead>
-
+              <thead>
+                <tr>
+                  <th>Book</th>
+                  <th>Finish</th>
+                  <th>Total</th>
+                  <th>Current</th>
+                  <th>Left</th>
+                  <th>Min/day req</th>
+                  <th>Status</th>
+                  <th>Reading</th>
+                  <th>Done</th>
+                  <th></th>
+                </tr>
+              </thead>
               <tbody></tbody>
             </table>
           </div>
-          <div class="hint">Click a book title for details.</div>
+          <div class="hint">On mobile, tables become clean cards. No side-scrolling misery.</div>
         </div>
       </div>
     </section>
