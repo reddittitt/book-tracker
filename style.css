@@ -89,6 +89,35 @@ body{
 
 label{ display:grid; gap:6px; color: var(--muted); font-size:13px; }
 
+/* Fix iOS/Android date input overflow */
+.stack, label, .card {
+  min-width: 0;
+}
+
+input, select, button, .btn {
+  max-width: 100%;
+  min-width: 0;
+}
+
+/* Date inputs are special snowflakes */
+input[type="date"]{
+  width: 100%;
+  display: block;
+  box-sizing: border-box;
+}
+/* iOS Safari: prevent date field from ignoring container sizing */
+@supports (-webkit-touch-callout: none) {
+  input[type="date"]{
+    -webkit-appearance: none;
+    appearance: none;
+  }
+}
+
+.card{
+  overflow: hidden;
+}
+
+
 input, select{
   background: rgba(17,24,36,.75);
   border:1px solid rgba(34,48,68,.9);
