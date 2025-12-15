@@ -1,4 +1,4 @@
-const CACHE_NAME = "reading-tracker-v1";
+const CACHE_NAME = "reading-tracker-v2_1"; // bump this when you deploy changes
 const ASSETS = [
   "./",
   "./index.html",
@@ -27,7 +27,22 @@ self.addEventListener("activate", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
 
-  // Network-first for data.json (so GitHub commits update it)
+  // Network-first for app shell too (so updates propagate better)
+  if (req.url.endsWith("/app.js") || req.url.includes("app.js") ||
+      req.url.endsWith("/index.html") || req.url.includes("index.html")) {
+    event.respondWith(
+      fetch(req)
+        .then(res => {
+          const copy = res.clone();
+          caches.open(CACHE_NAME).then(cache => cache.put(req, copy));
+          return res;
+        })
+        .catch(() => caches.match(req))
+    );
+    return;
+  }
+
+  // Network-first for data.json so GitHub commits update it
   if (req.url.includes("data.json")) {
     event.respondWith(
       fetch(req)
@@ -41,7 +56,7 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Cache-first for app shell
+  // Cache-first for the rest
   event.respondWith(
     caches.match(req).then(cached => cached || fetch(req))
   );
